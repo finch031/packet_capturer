@@ -125,7 +125,7 @@ public final class PacketParser {
         byte tos = ipV4Header.getTos().value();
         packetRecord.setIpTos(tos);
 
-        short ipTotalLen = ipV4Header.getTotalLength();
+        int ipTotalLen = ipV4Header.getTotalLengthAsInt();
         packetRecord.setIpTotalLen(ipTotalLen);
 
         int ipIdentification = ipV4Header.getIdentificationAsInt();

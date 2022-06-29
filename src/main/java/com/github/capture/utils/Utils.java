@@ -183,7 +183,7 @@ public final class Utils {
 
     public static String timestampToDateTime(long ts){
         LocalDateTime localDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneId.systemDefault());
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
         return localDateTime.format(formatter);
     }
 
@@ -197,6 +197,12 @@ public final class Utils {
             throw new NullPointerException();
         } else {
             return reference;
+        }
+    }
+
+    public static void checkArgument(boolean expression, Object errorMessage) {
+        if (!expression) {
+            throw new IllegalArgumentException(String.valueOf(errorMessage));
         }
     }
 

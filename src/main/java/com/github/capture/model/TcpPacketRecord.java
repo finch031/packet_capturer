@@ -36,7 +36,7 @@ public class TcpPacketRecord implements Serializable {
 
     private byte ipTos;
 
-    private short ipTotalLen;
+    private int ipTotalLen;
 
     private int ipIdentification;
 

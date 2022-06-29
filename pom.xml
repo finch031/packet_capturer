@@ -56,6 +56,7 @@
         <pcap4j.version>1.7.5</pcap4j.version>
         <protobuf.version>3.18.0</protobuf.version>
         <mysql.version>5.1.47</mysql.version>
+        <commons-lang3.version>3.12.0</commons-lang3.version>
         <lombok.version>1.18.12</lombok.version>
         <log4j.version>2.12.1</log4j.version>
 
@@ -98,6 +99,12 @@
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>${mysql.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
         </dependency>
 
         <dependency>
@@ -277,12 +284,12 @@
                     </configuration>
 
                     <dependencies>
-                        <dependency>
-                            <!-- 明确指定用的是JUnit4.7及以上版本 -->
+                        <!-- 明确指定用的是JUnit4.7及以上版本 -->
+                        <!--dependency>
                             <groupId>org.apache.maven.surefire</groupId>
                             <artifactId>surefire-junit4</artifactId>
                             <version>${surefire.version}</version>
-                        </dependency>
+                        </dependency-->
                     </dependencies>
 
                 </plugin>

@@ -4,12 +4,17 @@ import com.github.capture.conf.AppConfiguration;
 import com.github.capture.db.QueryRunner;
 import com.github.capture.db.StatementConfiguration;
 import com.github.capture.model.TcpPacketRecord;
+import com.github.capture.sink.ch.ClickHouseSink;
 import com.github.capture.sink.file.CsvPacketSink;
 import com.github.capture.sink.jdbc.MySQLPacketSink;
+import com.github.capture.sink.kafka.KafkaSink;
 import com.github.capture.task.PacketParallelTask;
 import com.github.capture.utils.*;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.sql.Connection;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -111,6 +116,7 @@ public class Main {
 
         // MySQLPacketSink mySQLPacketSink = new MySQLPacketSink(appConf,queryRunner,writeConn,insertSql,new MySQLPacketSink.DefaultMySQLLineConverter());
 
+        /*
         PacketParallelTask task1 = new PacketParallelTask(
                 packetBuffer,
                 new MySQLPacketSink(appConf,queryRunner,writeConn,insertSql,new MySQLPacketSink.DefaultMySQLLineConverter()));
@@ -131,11 +137,70 @@ public class Main {
                 packetBuffer,
                 new MySQLPacketSink(appConf,queryRunner,writeConn,insertSql,new MySQLPacketSink.DefaultMySQLLineConverter()));
         task4.setIdGenerator(snowflake);
+        */
 
         // PacketParallelTask task1 = new PacketParallelTask(packetBuffer,new CsvPacketSink(appConf,csvLineConverter));
         // PacketParallelTask task2 = new PacketParallelTask(packetBuffer,new CsvPacketSink(appConf,csvLineConverter));
         // PacketParallelTask task3 = new PacketParallelTask(packetBuffer,new CsvPacketSink(appConf,csvLineConverter));
         // PacketParallelTask task4 = new PacketParallelTask(packetBuffer,new CsvPacketSink(appConf,csvLineConverter));
+
+        Properties kafkaProducerProps =  new Properties();
+        kafkaProducerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "node4:9092");
+        kafkaProducerProps.put(ProducerConfig.CLIENT_ID_CONFIG, "PcapCaptureProducer01");
+        kafkaProducerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        kafkaProducerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+
+        // 幂等和事务共同保证kafka-0.11.0.0的精确一致性。
+
+        // 开启幂等性(一条消息被反复消费多次并不会对计算结果产生影响)保障
+        // kafkaProducerProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG,"true");
+        // must set acks to all in order to use the idempotent producer.otherwise we cannot guarantee idempotence.
+        // kafkaProducerProps.put(ProducerConfig.ACKS_CONFIG,"all");
+
+        /*
+         * 开启事务语义保障
+         * The TransactionalId to use for transactional delivery. This enables reliability semantics
+         * which span multiple producer sessions since it allows the client to guarantee that
+         * transactions using the same TransactionalId have been completed prior to starting
+         * any new transactions. If no TransactionalId is provided, then the producer is limited
+         * to idempotent delivery. Note that enable.idempotence must be enabled if a TransactionalId
+         * is configured. The default is null, which means transactions cannot be used. Note that,
+         * by default, transactions require a cluster of at least three brokers which is the recommended
+         * setting for production.
+         * */
+        // kafkaProducerProps.setProperty(ProducerConfig.TRANSACTIONAL_ID_CONFIG,"producer_transaction_id");
+
+        /*
+         * The maximum amount of time in ms that the transaction coordinator will wait for a
+         * transaction status update from the producer before proactively aborting the ongoing
+         * transaction.If this value is larger than the transaction.max.timeout.ms setting in
+         * the broker, the request will fail with a InvalidTransactionTimeout error.
+         * */
+        // kafkaProducerProps.setProperty(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG,"60000");
+
+        String topic = "packet_capture_topic_01";
+        PacketParallelTask task1 = new PacketParallelTask(packetBuffer,new KafkaSink(kafkaProducerProps,topic));
+        PacketParallelTask task2 = new PacketParallelTask(packetBuffer,new KafkaSink(kafkaProducerProps,topic));
+        PacketParallelTask task3 = new PacketParallelTask(packetBuffer,new KafkaSink(kafkaProducerProps,topic));
+        PacketParallelTask task4 = new PacketParallelTask(packetBuffer,new KafkaSink(kafkaProducerProps,topic));
+
+        /*
+        String chServerHost = "node2";
+        int chServerPort = 8123;
+        String chDB = "bdp";
+        String chUser = "default";
+        String chPassword = "xxxxxx";
+
+        PacketParallelTask task1 = new PacketParallelTask(packetBuffer,new ClickHouseSink(chServerHost,chServerPort,chDB,chUser,chPassword));
+        PacketParallelTask task2 = new PacketParallelTask(packetBuffer,new ClickHouseSink(chServerHost,chServerPort,chDB,chUser,chPassword));
+        PacketParallelTask task3 = new PacketParallelTask(packetBuffer,new ClickHouseSink(chServerHost,chServerPort,chDB,chUser,chPassword));
+        PacketParallelTask task4 = new PacketParallelTask(packetBuffer,new ClickHouseSink(chServerHost,chServerPort,chDB,chUser,chPassword));
+        */
+
+        task1.setIdGenerator(new Snowflake(6,10));
+        task2.setIdGenerator(new Snowflake(6,10));
+        task3.setIdGenerator(new Snowflake(6,10));
+        task4.setIdGenerator(new Snowflake(6,10));
 
         executorService.submit(task1);
         executorService.submit(task2);
@@ -178,8 +243,12 @@ public class Main {
                     System.out.println("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
 
                     Utils.sleepQuietly(5000,TimeUnit.MILLISECONDS);
-                }
 
+                    if(Thread.currentThread().isInterrupted()){
+                        System.out.println("monitor thread is interrupted,exit loop now...");
+                        break;
+                    }
+                }
 
             }
         };
@@ -189,7 +258,7 @@ public class Main {
         monitorThread.start();
 
         try{
-            boolean terminated = executorService.awaitTermination(60L, TimeUnit.MINUTES);
+            boolean terminated = executorService.awaitTermination(180L, TimeUnit.MINUTES);
             System.out.println("线程池停止成功=" + terminated);
             if(!terminated){
                 // executorService.shutdown();
@@ -200,8 +269,7 @@ public class Main {
 
                 osResourceMonitorTask.stop();
                 packetCapture.stopRunning();
-
-                monitorThread.join();
+                monitorThread.interrupt();
             }
 
         }catch (InterruptedException ie){
