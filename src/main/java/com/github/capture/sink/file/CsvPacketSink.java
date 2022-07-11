@@ -34,7 +34,7 @@ public class CsvPacketSink implements PacketSink {
 
     public CsvPacketSink(AppConfiguration appConf,CsvLineConverter csvLineConverter){
         this.writeBatchSize = appConf.getInteger("client.packet.write.batch.size",100);
-        this.fileSwitchMB = appConf.getInteger("client.packet.outout.file.switch.mb",512);
+        this.fileSwitchMB = appConf.getInteger("client.packet.output.file.switch.mb",512);
 
         String outputPath = appConf.getString("client.packet.output.path","./packet");
         String fileNamePrefix = appConf.getString("client.packet.output.filename","tcp_capture");
@@ -98,7 +98,7 @@ public class CsvPacketSink implements PacketSink {
     @Override
     public void open() {
         this.currentWriteFileName = inProgressFileAcquire.acquire();
-        LOG.info("打开文件:" + currentWriteFileName + " ,初始大小:" + Utils.fileSize(currentWriteFileName));
+        LOG.info("open file:" + currentWriteFileName + " ,init size:" + Utils.fileSize(currentWriteFileName));
 
         try{
             FileOutputStream fos = new FileOutputStream(currentWriteFileName,true);

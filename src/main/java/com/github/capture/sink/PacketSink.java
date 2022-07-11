@@ -15,7 +15,8 @@ public interface PacketSink extends Closeable {
         CSV_SINK,
         MYSQL_SINK,
         KAFKA_SINK,
-        CLICKHOUSE_SINK
+        CLICKHOUSE_SINK,
+        ES
     }
 
     SinkType sinkType();

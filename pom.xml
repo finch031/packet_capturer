@@ -56,6 +56,7 @@
         <pcap4j.version>1.7.5</pcap4j.version>
         <protobuf.version>3.18.0</protobuf.version>
         <mysql.version>5.1.47</mysql.version>
+        <es.client.version>7.6.2</es.client.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
         <lombok.version>1.18.12</lombok.version>
         <log4j.version>2.12.1</log4j.version>
@@ -102,9 +103,21 @@
         </dependency>
 
         <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-high-level-client</artifactId>
+            <version>${es.client.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons-lang3.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.83</version>
         </dependency>
 
         <dependency>

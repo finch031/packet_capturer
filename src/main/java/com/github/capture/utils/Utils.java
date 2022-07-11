@@ -47,7 +47,13 @@ public final class Utils {
      * @param value The value to write
      */
     public static void writeUnsignedIntLE(byte[] buffer, int offset, int value) {
+        // 0000 0000 0000 0000 0000 0000 1110 1001
+
+        // 无符号整型强转为byte,结果就是只保留低字节的8位，也就是4字节的value的最低一个字节
         buffer[offset] = (byte) value;
+
+        // 无符号整型向右移动8位，结果就是原先的整型低位第2个字节移动到低位第一个字节位置
+        // 再进行强转，最终结果就是保留原始整型第二个字节
         buffer[offset + 1] = (byte) (value >>> 8);
         buffer[offset + 2] = (byte) (value >>> 16);
         buffer[offset + 3]   = (byte) (value >>> 24);
@@ -62,10 +68,10 @@ public final class Utils {
      * @return The integer read (MUST BE TREATED WITH SPECIAL CARE TO AVOID SIGNEDNESS)
      */
     public static int readUnsignedIntLE(byte[] buffer, int offset) {
-        return (buffer[offset] << 0 & 0xff)
-                | ((buffer[offset + 1] & 0xff) << 8)
-                | ((buffer[offset + 2] & 0xff) << 16)
-                | ((buffer[offset + 3] & 0xff) << 24);
+        return (buffer[offset] << 0 & 0xff)                 // 读第一个字节
+                | ((buffer[offset + 1] & 0xff) << 8)        // 读第二个字节
+                | ((buffer[offset + 2] & 0xff) << 16)       // 读第三个字节
+                | ((buffer[offset + 3] & 0xff) << 24);      // 读第四个字节
     }
 
     public static void writeLong(byte[] buffer, int offset, long value){
@@ -310,6 +316,7 @@ public final class Utils {
             e.printStackTrace();
         }
     }
+
 
 
 

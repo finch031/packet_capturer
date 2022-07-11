@@ -1,6 +1,5 @@
 package com.github.capture.utils;
 
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -33,5 +32,9 @@ public class AppJvmObjectSizeCalculator {
         LOG.info("Object: " + objClassName + " used jvm bytes:" +
                 Utils.formatBytes(objectSize) + ",total jvm bytes:" +
                 Utils.formatBytes(totalUsedJvmObjectBytes));
+    }
+
+    public void reset(){
+        this.totalUsedJvmObjectBytes = 0;
     }
 }
