@@ -153,16 +153,16 @@ public class MySQLPacketSink implements PacketSink {
             // reset buffer.
             writeBuffer.clear();
         }
+
+        record = null;
     }
 
     @Override
     public void gatherAndWriteTo(TcpPacketRecord record) throws Exception {
-
     }
 
     @Override
     public void open() {
-
     }
 
     @Override

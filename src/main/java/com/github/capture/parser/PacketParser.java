@@ -17,15 +17,17 @@ public final class PacketParser {
     /**
      * 原始数据包解析
      * @param data 原始数据.
+     * @param offset 字节偏移量.
+     * @param len 字节数.
      * @param messageID 消息ID.
      * @param captureTs 原始数据包捕获时间
      * */
-    public static TcpPacketRecord parse(byte[] data,String messageID,long captureTs){
+    public static TcpPacketRecord parse(byte[] data,int offset, int len,String messageID,long captureTs){
         TcpPacketRecord packetRecord = null;
         long parseStartTs = System.currentTimeMillis();
 
         try{
-            EthernetPacket ethernetPacket = EthernetPacket.newPacket(data, 0, data.length);
+            EthernetPacket ethernetPacket = EthernetPacket.newPacket(data, offset, len);
 
             if(ethernetPacket.getHeader().getType() == EtherType.IPV4){
                 packetRecord = new TcpPacketRecord();

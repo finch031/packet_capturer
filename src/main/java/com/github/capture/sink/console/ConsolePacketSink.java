@@ -24,6 +24,8 @@ public class ConsolePacketSink implements PacketSink {
     @Override
     public void writeTo(TcpPacketRecord record, Callback callback) throws Exception {
         System.out.println(Utils.timestampToDateTime(record.getMessageCaptureTs()) + "," + record);
+
+        record = null;
     }
 
     @Override

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 public class JsonSerializationTest {
     private static final JsonSerialization<TcpPacketRecord> jsonSerialization = new JsonSerialization<>(TcpPacketRecord.class,true,false);
 
-    @Test
+    // @Test
     public void test01(){
         TcpPacketRecord record = new TcpPacketRecord();
         record.setEtherType((short) 12);

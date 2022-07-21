@@ -10,6 +10,7 @@ import com.github.capture.utils.IdGenerator;
 import com.github.capture.utils.Triple;
 import com.github.capture.utils.Utils;
 import com.github.capture.utils.XORShiftRandom;
+import io.netty.buffer.ByteBuf;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -29,7 +30,7 @@ public class PacketParallelTask implements Runnable, PacketParsable {
     /**
      * 数据源.
      * */
-    private ConcurrentLinkedQueue<byte[]> packetBuffer;
+    private ConcurrentLinkedQueue<ByteBuf> packetBuffer;
 
     /**
      * id生成器.
@@ -57,13 +58,13 @@ public class PacketParallelTask implements Runnable, PacketParsable {
         this.isRunning = true;
     }
 
-    public PacketParallelTask(ConcurrentLinkedQueue<byte[]> packetBuffer, PacketSink sink){
+    public PacketParallelTask(ConcurrentLinkedQueue<ByteBuf> packetBuffer, PacketSink sink){
         this();
         this.packetBuffer = packetBuffer;
         this.sink = sink;
     }
 
-    public void setPacketBuffer(ConcurrentLinkedQueue<byte[]> packetBuffer){
+    public void setPacketBuffer(ConcurrentLinkedQueue<ByteBuf> packetBuffer){
         this.packetBuffer = packetBuffer;
     }
 
@@ -108,20 +109,34 @@ public class PacketParallelTask implements Runnable, PacketParsable {
         int processSpeedCounter = 0;
         long processSpeedStartTs = System.currentTimeMillis();
         long millisTakenNow = 0;
+        ByteBuf packet = null;
+        byte[] data = new byte[65535];
         while (isRunning){
             // 拉取数据包
-            byte[] packet = packetBuffer.poll();
+            packet = packetBuffer.poll();
+
             if(packet != null){
+                int size = packet.readInt();
+                long timestamp = packet.readLong();
+                if(size > 65535){
+                    data = new byte[size];
+                }
+                packet.readBytes(data,0,size);
+
+                /*
                 // 原始数据包大小
                 int size = Utils.readUnsignedIntLE(packet,0) - 8;
                 // 数据包捕获时间
                 long timestamp = Utils.readLong(packet,4);
-
-                byte[] data = new byte[size];
+                // 以太网包数据
+                data = new byte[size];
                 // 分离出数据包
                 System.arraycopy(packet,12,data,0,size);
+                */
+
                 // 数据包解析
-                TcpPacketRecord tcpPacketRecord = parse(data,timestamp);
+                // TcpPacketRecord tcpPacketRecord = parse(packet.array(),12,size,timestamp);
+                TcpPacketRecord tcpPacketRecord = parse(data,0, size,timestamp);
 
                 try{
                     // 解析记录输出.
@@ -135,6 +150,9 @@ public class PacketParallelTask implements Runnable, PacketParsable {
                 }catch (Exception ex){
                     ex.printStackTrace();
                 }
+
+                // 释放内存块
+                packet.release();
             }
 
             millisTakenNow = System.currentTimeMillis() - processSpeedStartTs;
@@ -152,7 +170,7 @@ public class PacketParallelTask implements Runnable, PacketParsable {
     }
 
     @Override
-    public TcpPacketRecord parse(byte[] data,long captureTs) {
-        return PacketParser.parse(data,String.valueOf(idGenerator.id()),captureTs);
+    public TcpPacketRecord parse(byte[] data,int offset, int len,long captureTs) {
+        return PacketParser.parse(data,offset,len,String.valueOf(idGenerator.id()),captureTs);
     }
 }

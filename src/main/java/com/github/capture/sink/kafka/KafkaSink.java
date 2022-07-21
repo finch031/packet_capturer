@@ -76,6 +76,7 @@ public class KafkaSink implements PacketSink {
             e.printStackTrace();
         }
 
+        record = null;
     }
 
     @Override

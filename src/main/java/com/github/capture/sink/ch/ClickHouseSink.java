@@ -142,6 +142,8 @@ public class ClickHouseSink implements PacketSink {
 
             writeBuffer.clear();
         }
+
+        record = null;
     }
 
     @Override

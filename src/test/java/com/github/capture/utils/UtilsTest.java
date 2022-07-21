@@ -31,7 +31,7 @@ public class UtilsTest {
         System.out.println(df.format(10.0000F));
     }
 
-    @Test
+    // @Test
     public void test2(){
 
         try{

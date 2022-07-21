@@ -33,12 +33,11 @@ public class EsSink implements PacketSink {
 
     @Override
     public SinkType sinkType() {
-        return SinkType.ES;
+        return SinkType.ES_SINK;
     }
 
     @Override
     public void open() {
-
     }
 
     @Override
@@ -48,7 +47,6 @@ public class EsSink implements PacketSink {
 
     @Override
     public void gatherAndWriteTo(TcpPacketRecord record) throws Exception {
-
     }
 
     @Override
@@ -77,5 +75,7 @@ public class EsSink implements PacketSink {
 
             docs.clear();
         }
+
+        record = null;
     }
 }

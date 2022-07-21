@@ -89,6 +89,8 @@ public class CsvPacketSink implements PacketSink {
         }catch (IOException ioe){
             LOG.error(ioe);
         }
+
+        record = null;
     }
 
     @Override

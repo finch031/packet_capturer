@@ -58,7 +58,10 @@
         <mysql.version>5.1.47</mysql.version>
         <es.client.version>7.6.2</es.client.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
+        <jedis.version>3.3.0</jedis.version>
+        <fastjson.version>1.2.83</fastjson.version>
         <lombok.version>1.18.12</lombok.version>
+        <netty.version>4.1.79.Final</netty.version>
         <log4j.version>2.12.1</log4j.version>
 
         <main.class>com.github.capture.Main</main.class>
@@ -109,6 +112,12 @@
         </dependency>
 
         <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>${jedis.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
             <version>${commons-lang3.version}</version>
@@ -117,13 +126,19 @@
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
-            <version>1.2.83</version>
+            <version>${fastjson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <version>${lombok.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-buffer</artifactId>
+            <version>${netty.version}</version>
         </dependency>
 
         <dependency>

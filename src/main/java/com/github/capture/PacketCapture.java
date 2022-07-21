@@ -3,6 +3,8 @@ package com.github.capture;
 import com.github.capture.conf.AppConfiguration;
 import com.github.capture.utils.Tuple;
 import com.github.capture.utils.Utils;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.pcap4j.core.*;
@@ -10,16 +12,9 @@ import org.pcap4j.packet.Packet;
 import org.pcap4j.packet.namednumber.DataLinkType;
 import org.pcap4j.util.NifSelector;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public final class PacketCapture extends Thread{
     private static final Logger LOG = LogManager.getLogger(PacketCapture.class);
@@ -54,7 +49,9 @@ public final class PacketCapture extends Thread{
     /**
      * 数据包缓存.
      * */
-    private ConcurrentLinkedQueue<byte[]> bufferPackets;
+    private ConcurrentLinkedQueue<ByteBuf> bufferPackets;
+
+    private PooledByteBufAllocator bufAllocator;
 
     /**
      * 抓包metric信息.
@@ -66,11 +63,12 @@ public final class PacketCapture extends Thread{
         this.isRunning = true;
     }
 
-    PacketCapture(AppConfiguration appConf,String[] cmdArgs,ConcurrentLinkedQueue<byte[]> bufferPackets, int capturePauseSleepMillis){
+    PacketCapture(AppConfiguration appConf,String[] cmdArgs,ConcurrentLinkedQueue<ByteBuf> bufferPackets, PooledByteBufAllocator bufAllocator, int capturePauseSleepMillis){
         this();
         this.appConf = appConf;
         this.cmdArgs = cmdArgs;
         this.bufferPackets = bufferPackets;
+        this.bufAllocator = bufAllocator;
         this.capturePauseSleepMillis = capturePauseSleepMillis;
     }
 
@@ -78,7 +76,8 @@ public final class PacketCapture extends Thread{
         private AppConfiguration appConf;
         private String[] cmdArgs;
         private int capturePauseSleepMillis = 1000;
-        private ConcurrentLinkedQueue<byte[]> bufferPackets;
+        private ConcurrentLinkedQueue<ByteBuf> bufferPackets;
+        private PooledByteBufAllocator bufAllocator;
 
         public Builder(){}
 
@@ -92,8 +91,13 @@ public final class PacketCapture extends Thread{
             return this;
         }
 
-        public Builder setBufferPackets(ConcurrentLinkedQueue<byte[]> bufferPackets){
+        public Builder setBufferPackets(ConcurrentLinkedQueue<ByteBuf> bufferPackets){
             this.bufferPackets = bufferPackets;
+            return this;
+        }
+
+        public Builder setBufferPool(PooledByteBufAllocator bufAllocator){
+            this.bufAllocator = bufAllocator;
             return this;
         }
 
@@ -103,7 +107,7 @@ public final class PacketCapture extends Thread{
         }
 
         public PacketCapture build(){
-            return new PacketCapture(appConf,cmdArgs,bufferPackets,capturePauseSleepMillis);
+            return new PacketCapture(appConf,cmdArgs,bufferPackets,bufAllocator,capturePauseSleepMillis);
         }
     }
 
@@ -142,8 +146,7 @@ public final class PacketCapture extends Thread{
         }
         System.out.println();
 
-        PcapHandle handle =
-                new PcapHandle.Builder(nif.getName())
+        PcapHandle handle = new PcapHandle.Builder(nif.getName())
                         .snaplen(65535)
                         .promiscuousMode(PcapNetworkInterface.PromiscuousMode.PROMISCUOUS)
                         .timeoutMillis(timeoutMillis)
@@ -194,9 +197,23 @@ public final class PacketCapture extends Thread{
                     int dlt = pcapHandle.getDlt().value();
                     long timestamp = pcapHandle.getTimestamp().getTime();
 
+                    // Ethernet
                     if(dlt == 1){
                         byte[] rawData = packet.getRawData();
 
+                        // 申请内存块
+                        ByteBuf byteBuf = bufAllocator.buffer(rawData.length + 12);
+
+                        // 写入原始数据长度
+                        byteBuf.writeInt(rawData.length);
+                        // 写入原始数据抓包时间
+                        byteBuf.writeLong(timestamp);
+                        // 写入原始数据
+                        byteBuf.writeBytes(rawData);
+
+                        bufferPackets.add(byteBuf);
+
+                        /*
                         // 4 + 8 + raw_data_len
                         byte[] data = new byte[4 + 8 + rawData.length];
 
@@ -211,6 +228,7 @@ public final class PacketCapture extends Thread{
 
                         // buffer packets.
                         bufferPackets.add(data);
+                        */
 
                         captureSpeedCounter++;
                     }
@@ -272,120 +290,5 @@ public final class PacketCapture extends Thread{
 
     public final Tuple<Long,Float> captureMetric(){
         return this.captureMetric;
-    }
-
-    private void writeBufferLoop(AppConfiguration appConf){
-        AtomicLong counter = new AtomicLong(0);
-        String outputPath = appConf.getString("client.packet.output.path","./packet");
-        String fileNamePrefix = appConf.getString("client.packet.output.filename","tcp_capture");
-
-        Collection<File> inProgressFiles = Utils.listFiles(new File(outputPath),new String[] {"inprogress"},false);
-
-        String currentWriteFileName;
-        boolean initIsInProgressFile = false;
-        if(inProgressFiles.isEmpty()){
-            currentWriteFileName = outputPath + "/" + fileNamePrefix + "_" + Utils.now() + ".inprogress";
-        }else{
-            Optional<File> latestFile = inProgressFiles.stream().max(new Comparator<File>() {
-                @Override
-                public int compare(File o1, File o2) {
-                    return Long.compare(o1.lastModified(), o2.lastModified());
-                }
-            });
-            currentWriteFileName = latestFile.get().getAbsolutePath();
-            initIsInProgressFile = true;
-        }
-
-        FileChannel fileChannel;
-        int writeBatchSize = appConf.getInteger("client.packet.write.batch.size",100);
-        int fileSwitchMB = appConf.getInteger("client.packet.outout.file.switch.mb",512);
-        try{
-            FileOutputStream fos = new FileOutputStream(currentWriteFileName,initIsInProgressFile);
-            fileChannel = fos.getChannel();
-
-            int hasWritten = 0;
-            while(isRunning){
-                byte[] data = bufferPackets.poll();
-                if(data != null){
-                    try{
-                        fileChannel.write(ByteBuffer.wrap(data));
-                        hasWritten++;
-                        counter.incrementAndGet();
-                    }catch (IOException ioe){
-                        LOG.error(ioe);
-                    }
-
-                    if(hasWritten == writeBatchSize){
-                        try{
-                            fileChannel.force(true);
-
-                            if(fileChannel.size() > fileSwitchMB * 1024L * 1024L){
-                                fos.close();
-                                File currentFile = new File(currentWriteFileName);
-                                File destFile = new File(currentWriteFileName.replace(".inprogress",".packet"));
-                                boolean renameSuccess = currentFile.renameTo(destFile);
-                                if(renameSuccess){
-                                    currentWriteFileName = outputPath + "/" + fileNamePrefix + "_" + Utils.now() + ".inprogress";
-                                    fos = new FileOutputStream(currentWriteFileName);
-                                    fileChannel = fos.getChannel();
-                                    LOG.info(" write file " + destFile.getAbsolutePath() + " packet number=" + counter.get());
-                                    counter.set(0);
-                                    LOG.info("start write new file: " + currentWriteFileName);
-                                }
-                            }
-
-                            hasWritten = 0;
-                        }catch (IOException ioe){
-                            ioe.printStackTrace();
-                        }
-                    }
-                }
-            }
-        }catch (FileNotFoundException fileNotFoundException){
-            fileNotFoundException.printStackTrace();
-        }
-    }
-
-    public static void main(String[] args){
-        AppConfiguration appConf = AppConfiguration.loadFromPropertiesResource("client.properties");
-
-        /*
-        Builder packetCaptureBuilder = new PacketCapture.Builder();
-        packetCaptureBuilder.setAppConf(appConf);
-        packetCaptureBuilder.setCmdArgs(args);
-        packetCaptureBuilder.setCapturePauseSleepMillis(200);
-        packetCaptureBuilder.setBufferPackets(new ConcurrentLinkedQueue<>());
-
-        PacketCapture packetCapture = packetCaptureBuilder.build();
-        packetCapture.start();
-        */
-
-        /*
-        PcapHandle pcapHandle = null;
-        try{
-            pcapHandle = initPcapHandle(appConf,args);
-        }catch (PcapNativeException | NotOpenException ex){
-            ex.printStackTrace();
-        }
-
-        if(pcapHandle == null){
-            LOG.error("pcap handle init failed!");
-            System.exit(1);
-        }
-
-        PacketCapture capture = new PacketCapture();
-
-        Thread writeThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                capture.writeBufferLoop(appConf);
-            }
-        });
-        writeThread.setDaemon(true);
-        writeThread.start();
-
-        capture.captureLoop(pcapHandle);
-        */
-
     }
 }

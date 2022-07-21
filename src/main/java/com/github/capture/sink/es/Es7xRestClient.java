@@ -45,7 +45,6 @@ import static java.util.Collections.unmodifiableList;
 import static org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_NUMBER_OF_REPLICAS;
 import static org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_NUMBER_OF_SHARDS;
 
-
 /**
  * @author yusheng
  * @version 1.0.0
