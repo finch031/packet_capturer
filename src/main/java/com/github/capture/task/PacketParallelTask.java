@@ -152,7 +152,7 @@ public class PacketParallelTask implements Runnable, PacketParsable {
                 }
 
                 // 释放内存块
-                packet.release();
+                // packet.release();
             }
 
             millisTakenNow = System.currentTimeMillis() - processSpeedStartTs;

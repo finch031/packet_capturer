@@ -1,6 +1,8 @@
 package com.github.capture;
 
 import com.github.capture.conf.AppConfiguration;
+import com.github.capture.monitor.CaptureTaskSpeedMonitor;
+import com.github.capture.monitor.MemoryMonitor;
 import com.github.capture.sink.PacketSink;
 import com.github.capture.sink.PacketSinkFactory;
 import com.github.capture.sink.PacketSinkFactoryMaker;
@@ -54,7 +56,7 @@ public class Main {
         PooledByteBufAllocator bufAllocator = PooledByteBufAllocator.DEFAULT;
 
         ConcurrentLinkedQueue<ByteBuf> packetBuffer = new ConcurrentLinkedQueue<>();
-
+        // 抓包任务
         PacketCapture packetCapture = new PacketCapture.Builder()
                 .setAppConf(appConf)
                 .setCmdArgs(args)
@@ -72,6 +74,7 @@ public class Main {
         PacketSinkFactory packetSinkFactory = PacketSinkFactoryMaker.makeFactory(sinkType,appConf);
 
         for(int i = 0; i < taskParallelNumber; i++){
+            // 解包任务
             PacketParallelTask task = new PacketParallelTask(packetBuffer,packetSinkFactory.getPacketSink(appConf));
             task.setIdGenerator(new Snowflake(6,10));
             taskList.add(task);
@@ -83,49 +86,16 @@ public class Main {
             executorService.submit(task);
         }
 
-        float maxCaptureSpeed = appConf.getFloat("client.capture.max.speed",1000f);
-        Runnable monitorTask = new Runnable() {
-            @Override
-            public void run() {
-                Tuple<Long,Float> parseMetric;
-                Triple<Long,Float,Long> processMetric;
-
-                while(true){
-                    parseMetric = packetCapture.captureMetric();
-                    System.out.println("当前时间:" + Utils.timestampToDateTime(parseMetric.v1()) + ",当前抓包速度(包/秒):" + parseMetric.v2());
-
-                    if(parseMetric.v2() > maxCaptureSpeed){
-                        System.out.println("抓包速度过快,准备限速...");
-                        packetCapture.pauseCapture();
-                        Utils.sleepQuietly(50,TimeUnit.MILLISECONDS);
-                        packetCapture.startCapture();
-                    }
-
-                    appJvmObjectSizeCalculator.reset();
-                    for (PacketParallelTask task : taskList) {
-                        processMetric = task.processMetric();
-                        System.out.println("当前时间:" + Utils.timestampToDateTime(processMetric.getFirst()) + ",当前处理包速度(包/秒):" + processMetric.getSecond() + ",线程ID:" + processMetric.getThird());
-                        appJvmObjectSizeCalculator.calculate(task);
-                    }
-
-                    System.out.println(bufAllocator.dumpStats());
-
-                    System.out.println("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
-
-                    Utils.sleepQuietly(5000,TimeUnit.MILLISECONDS);
-
-                    if(Thread.currentThread().isInterrupted()){
-                        System.out.println("monitor thread is interrupted,exit loop now...");
-                        break;
-                    }
-                }
-
-            }
-        };
-
-        Thread monitorThread = new Thread(monitorTask);
+        // 抓包/解包速度监控任务
+        CaptureTaskSpeedMonitor captureTaskSpeedMonitor = new CaptureTaskSpeedMonitor(packetCapture,appConf,appJvmObjectSizeCalculator,taskList);
+        Thread monitorThread = new Thread(captureTaskSpeedMonitor);
         monitorThread.setDaemon(true);
         monitorThread.start();
+
+        MemoryMonitor memoryMonitor = new MemoryMonitor(bufAllocator);
+        Thread memoryMonitorThread = new Thread(memoryMonitor);
+        memoryMonitorThread.setDaemon(true);
+        memoryMonitorThread.start();
 
         long captureMinutes = appConf.getLong("client.capture.minutes",5);
 
@@ -148,6 +118,9 @@ public class Main {
 
                 // 关闭任务监控线程
                 monitorThread.interrupt();
+
+                // 关闭内存监控线程
+                memoryMonitorThread.interrupt();
             }
         }catch (InterruptedException ie){
             ie.printStackTrace();

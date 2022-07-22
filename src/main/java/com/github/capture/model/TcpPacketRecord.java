@@ -48,7 +48,7 @@ public class TcpPacketRecord implements Serializable {
 
     private short ipFragmentOffset;
 
-    private byte ipTtl;
+    private int ipTtl;
 
     private byte ipProtocol;
 

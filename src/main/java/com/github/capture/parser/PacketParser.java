@@ -145,7 +145,7 @@ public final class PacketParser {
         short ipFragmentOffset = ipV4Header.getFragmentOffset();
         packetRecord.setIpFragmentOffset(ipFragmentOffset);
 
-        byte ipTtl = ipV4Header.getTtl();
+        int ipTtl = ipV4Header.getTtlAsInt();
         packetRecord.setIpTtl(ipTtl);
 
         byte ipProtocol = ipV4Header.getProtocol().value();
