@@ -18,9 +18,12 @@ import java.util.Map;
  */
 public class RedisSink implements PacketSink {
     private final Jedis jedis;
+    private final int recordTtl;
+    private final Map<String,String> value = new HashMap<>();
 
-    public RedisSink(Jedis jedis){
+    public RedisSink(Jedis jedis,int recordTtl){
         this.jedis = jedis;
+        this.recordTtl = recordTtl;
     }
 
     @Override
@@ -31,7 +34,6 @@ public class RedisSink implements PacketSink {
     @Override
     public void writeTo(TcpPacketRecord record, Callback callback) throws Exception {
         String key = record.getMessageID();
-        Map<String,String> value = new HashMap<>();
 
         value.put("message_capture_time", Utils.timestampToDateTime(record.getMessageCaptureTs()));
         value.put("ip_src_address",record.getIpSrcAddress());
@@ -43,8 +45,9 @@ public class RedisSink implements PacketSink {
         value.put("tcp_window_size",String.valueOf(record.getTcpWindow()));
 
         jedis.hset(key,value);
-        jedis.expire(key,300);
+        jedis.expire(key,recordTtl);
 
+        value.clear();
         record = null;
     }
 

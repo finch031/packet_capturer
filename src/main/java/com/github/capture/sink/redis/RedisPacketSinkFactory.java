@@ -24,13 +24,14 @@ public class RedisPacketSinkFactory implements PacketSinkFactory {
 
         JedisPoolConfig jedisPoolConfig = new JedisPoolConfig();
         jedisPoolConfig.setMaxTotal(taskParallelNumber);
-        jedisPoolConfig.setMaxIdle(1);
+        jedisPoolConfig.setMaxIdle(-1);
 
         jedisPool = new JedisPool(jedisPoolConfig,redisHost,redisPort,3000,redisPassword,redisDB);
     }
 
     @Override
     public PacketSink getPacketSink(AppConfiguration appConf) {
-        return new RedisSink(jedisPool.getResource());
+        int recordTtl = appConf.getInteger("client.redis.ttl",300);
+        return new RedisSink(jedisPool.getResource(),recordTtl);
     }
 }
