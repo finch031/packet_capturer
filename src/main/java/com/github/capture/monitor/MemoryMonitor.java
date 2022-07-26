@@ -29,14 +29,6 @@ public class MemoryMonitor implements Runnable{
             System.out.println("used direct memory: " + metric.usedDirectMemory());
             System.out.println("chunk size: " + metric.chunkSize());
 
-            metric.heapArenas().forEach(x -> {
-                System.out.println(x);
-            });
-
-            metric.directArenas().forEach(x -> {
-                System.out.println(x);
-            });
-
             Utils.sleepQuietly(5000, TimeUnit.MILLISECONDS);
 
             if(Thread.currentThread().isInterrupted()){

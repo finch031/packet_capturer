@@ -1,7 +1,7 @@
 package com.github.capture;
 
 import com.github.capture.conf.AppConfiguration;
-import com.github.capture.utils.Tuple;
+import com.github.capture.model.SpeedMetric;
 import com.github.capture.utils.Utils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -57,19 +57,21 @@ public final class PacketCapture extends Thread{
      * 抓包metric信息.
      * v1-时间戳,v2-抓包速度
      * */
-    private final Tuple<Long,Float> captureMetric = new Tuple<>(System.currentTimeMillis(),0F);
+    // private final Tuple<Long,Float> captureMetric = new Tuple<>(System.currentTimeMillis(),0F);
+    private SpeedMetric captureMetric;
 
     PacketCapture(){
         this.isRunning = true;
     }
 
-    PacketCapture(AppConfiguration appConf,String[] cmdArgs,ConcurrentLinkedQueue<ByteBuf> bufferPackets, PooledByteBufAllocator bufAllocator, int capturePauseSleepMillis){
+    PacketCapture(AppConfiguration appConf,String[] cmdArgs,ConcurrentLinkedQueue<ByteBuf> bufferPackets, PooledByteBufAllocator bufAllocator, int capturePauseSleepMillis,SpeedMetric captureMetric){
         this();
         this.appConf = appConf;
         this.cmdArgs = cmdArgs;
         this.bufferPackets = bufferPackets;
         this.bufAllocator = bufAllocator;
         this.capturePauseSleepMillis = capturePauseSleepMillis;
+        this.captureMetric = captureMetric;
     }
 
     public static class Builder{
@@ -78,6 +80,7 @@ public final class PacketCapture extends Thread{
         private int capturePauseSleepMillis = 1000;
         private ConcurrentLinkedQueue<ByteBuf> bufferPackets;
         private PooledByteBufAllocator bufAllocator;
+        private SpeedMetric captureMetric;
 
         public Builder(){}
 
@@ -106,8 +109,13 @@ public final class PacketCapture extends Thread{
             return this;
         }
 
+        public Builder setCaptureMetric(SpeedMetric captureMetric) {
+            this.captureMetric = captureMetric;
+            return this;
+        }
+
         public PacketCapture build(){
-            return new PacketCapture(appConf,cmdArgs,bufferPackets,bufAllocator,capturePauseSleepMillis);
+            return new PacketCapture(appConf,cmdArgs,bufferPackets,bufAllocator,capturePauseSleepMillis,captureMetric);
         }
     }
 
@@ -241,8 +249,7 @@ public final class PacketCapture extends Thread{
             if(millisTakenNow >= 1000){
                 // 抓包速度计算
                 captureSpeed = Utils.numericFormat((1000F * captureSpeedCounter) / millisTakenNow,2);
-                this.captureMetric.updateV1(System.currentTimeMillis());
-                this.captureMetric.updateV2(captureSpeed);
+                captureMetric.update(captureSpeed);
 
                 // reset.
                 captureSpeedStartTs = System.currentTimeMillis();
@@ -286,9 +293,5 @@ public final class PacketCapture extends Thread{
         }else {
             LOG.error("PcapHandle抓包句柄初始化失败!");
         }
-    }
-
-    public final Tuple<Long,Float> captureMetric(){
-        return this.captureMetric;
     }
 }

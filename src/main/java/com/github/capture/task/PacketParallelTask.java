@@ -1,5 +1,6 @@
 package com.github.capture.task;
 
+import com.github.capture.model.SpeedMetric;
 import com.github.capture.model.TcpPacketRecord;
 import com.github.capture.parser.PacketParsable;
 import com.github.capture.parser.PacketParser;
@@ -7,7 +8,6 @@ import com.github.capture.sink.Callback;
 import com.github.capture.sink.PacketSink;
 import com.github.capture.sink.SinkPacketMetadata;
 import com.github.capture.utils.IdGenerator;
-import com.github.capture.utils.Triple;
 import com.github.capture.utils.Utils;
 import com.github.capture.utils.XORShiftRandom;
 import io.netty.buffer.ByteBuf;
@@ -51,17 +51,19 @@ public class PacketParallelTask implements Runnable, PacketParsable {
      * 数据包任务的metric信息
      * v1-时间戳,v2-数据包处理速度,v3-线程ID
      * */
-    private final Triple<Long,Float,Long> processMetric = new Triple<>(System.currentTimeMillis(),0F,0L);
+    // private final Triple<Long,Float,Long> processMetric = new Triple<>(System.currentTimeMillis(),0F,0L);
+    private SpeedMetric sinkSpeedMetric;
 
     public PacketParallelTask(){
         this.idGenerator = new XORShiftRandom();
         this.isRunning = true;
     }
 
-    public PacketParallelTask(ConcurrentLinkedQueue<ByteBuf> packetBuffer, PacketSink sink){
+    public PacketParallelTask(ConcurrentLinkedQueue<ByteBuf> packetBuffer, PacketSink sink, SpeedMetric sinkSpeedMetric){
         this();
         this.packetBuffer = packetBuffer;
         this.sink = sink;
+        this.sinkSpeedMetric = sinkSpeedMetric;
     }
 
     public void setPacketBuffer(ConcurrentLinkedQueue<ByteBuf> packetBuffer){
@@ -76,6 +78,14 @@ public class PacketParallelTask implements Runnable, PacketParsable {
         this.idGenerator = idGenerator;
     }
 
+    public void setSinkSpeedMetric(SpeedMetric sinkSpeedMetric){
+        this.sinkSpeedMetric = sinkSpeedMetric;
+    }
+
+    public SpeedMetric getSinkSpeedMetric() {
+        return sinkSpeedMetric;
+    }
+
     private void assertIsReady(){
         Utils.checkNotNull(packetBuffer);
         LOG.info("packet buffer is ready.");
@@ -83,7 +93,8 @@ public class PacketParallelTask implements Runnable, PacketParsable {
         Utils.checkNotNull(sink);
         LOG.info("sink is ready, sink type is: " + sink.sinkType());
 
-        this.processMetric.updateThird(Thread.currentThread().getId());
+        Utils.checkNotNull(sinkSpeedMetric);
+        LOG.info("metric is ready, metric name is: " + sinkSpeedMetric.metricName());
     }
 
     public void stop(){
@@ -93,10 +104,6 @@ public class PacketParallelTask implements Runnable, PacketParsable {
         }catch (IOException ioe){
             ioe.printStackTrace();
         }
-    }
-
-    public final Triple<Long,Float,Long> processMetric(){
-        return this.processMetric;
     }
 
     @Override
@@ -159,8 +166,7 @@ public class PacketParallelTask implements Runnable, PacketParsable {
             if(millisTakenNow >= 1000){
                 // 数据包处理速度计算
                 processSpeed = Utils.numericFormat((1000F * processSpeedCounter) / millisTakenNow,2);
-                this.processMetric.updateFirst(System.currentTimeMillis());
-                this.processMetric.updateSecond(processSpeed);
+                this.sinkSpeedMetric.update(processSpeed);
 
                 // reset.
                 processSpeedStartTs = System.currentTimeMillis();

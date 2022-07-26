@@ -1,6 +1,9 @@
 package com.github.capture;
 
 import com.github.capture.conf.AppConfiguration;
+import com.github.capture.model.CaptureSpeedMetric;
+import com.github.capture.model.SinkSpeedMetric;
+import com.github.capture.model.SpeedMetric;
 import com.github.capture.monitor.CaptureTaskSpeedMonitor;
 import com.github.capture.monitor.MemoryMonitor;
 import com.github.capture.sink.PacketSink;
@@ -55,6 +58,7 @@ public class Main {
 
         PooledByteBufAllocator bufAllocator = PooledByteBufAllocator.DEFAULT;
 
+        SpeedMetric captureMetric = new CaptureSpeedMetric();
         ConcurrentLinkedQueue<ByteBuf> packetBuffer = new ConcurrentLinkedQueue<>();
         // 抓包任务
         PacketCapture packetCapture = new PacketCapture.Builder()
@@ -63,6 +67,7 @@ public class Main {
                 .setCapturePauseSleepMillis(50)
                 .setBufferPool(bufAllocator)
                 .setBufferPackets(packetBuffer)
+                .setCaptureMetric(captureMetric)
                 .build();
         packetCapture.setDaemon(true);
         packetCapture.start();
@@ -70,24 +75,30 @@ public class Main {
         int taskParallelNumber = appConf.getInteger("client.task.parallel.number",4);
 
         List<PacketParallelTask> taskList = new ArrayList<>();
+        List<SpeedMetric> sinkSpeedMetrics = new ArrayList<>();
 
         PacketSinkFactory packetSinkFactory = PacketSinkFactoryMaker.makeFactory(sinkType,appConf);
-
         for(int i = 0; i < taskParallelNumber; i++){
             // 解包任务
-            PacketParallelTask task = new PacketParallelTask(packetBuffer,packetSinkFactory.getPacketSink(appConf));
+            SpeedMetric sinkSpeedMetric = new SinkSpeedMetric();
+            PacketParallelTask task = new PacketParallelTask(packetBuffer,packetSinkFactory.getPacketSink(appConf),sinkSpeedMetric);
             task.setIdGenerator(new Snowflake(6,10));
             taskList.add(task);
+            sinkSpeedMetrics.add(sinkSpeedMetric);
         }
 
         ExecutorService executorService = Executors.newFixedThreadPool(taskParallelNumber);
-
         for (PacketParallelTask task : taskList) {
             executorService.submit(task);
         }
 
         // 抓包/解包速度监控任务
         CaptureTaskSpeedMonitor captureTaskSpeedMonitor = new CaptureTaskSpeedMonitor(packetCapture,appConf,appJvmObjectSizeCalculator,taskList);
+        // 添加观察者
+        captureMetric.addObserver(captureTaskSpeedMonitor);
+        // 添加观察者
+        sinkSpeedMetrics.forEach(metric -> metric.addObserver(captureTaskSpeedMonitor));
+
         Thread monitorThread = new Thread(captureTaskSpeedMonitor);
         monitorThread.setDaemon(true);
         monitorThread.start();
@@ -98,7 +109,6 @@ public class Main {
         memoryMonitorThread.start();
 
         long captureMinutes = appConf.getLong("client.capture.minutes",5);
-
         try{
             boolean terminated = executorService.awaitTermination(captureMinutes == -1L ? 7 * 24 * 60L : captureMinutes, TimeUnit.MINUTES);
             LOG.info("任务结束,关闭资源...");
