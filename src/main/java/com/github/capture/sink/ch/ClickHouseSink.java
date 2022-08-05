@@ -50,7 +50,7 @@ public class ClickHouseSink implements PacketSink {
 
         writeBuffer.add(record);
 
-        if(writeBuffer.size() >= 200){
+        if(writeBuffer.size() >= 1000){
             System.out.println("start write batch...");
 
             client.insert(conn, sql, new ClickHouseJDBCClient.RowAppender() {

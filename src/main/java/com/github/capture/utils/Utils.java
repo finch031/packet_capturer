@@ -1,5 +1,7 @@
 package com.github.capture.utils;
 
+import org.checkerframework.checker.units.qual.A;
+
 import java.io.File;
 import java.io.FileFilter;
 import java.io.PrintWriter;
@@ -17,7 +19,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.Random;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class Utils {
     public static final boolean IS_LINUX_OS = System.getProperty("os.name") != null && System.getProperty("os.name").startsWith("Linux");
@@ -317,7 +321,19 @@ public final class Utils {
         }
     }
 
+    public static ThreadFactory disruptorNamedDaemonThreadFactory(){
+        return new ThreadFactory(){
+            private final AtomicInteger counter = new AtomicInteger(0);
 
+            @Override
+            public Thread newThread(final Runnable r) {
+                Thread t = new Thread(r);
+                t.setName("disruptor_processor_" + counter.addAndGet(1));
+                t.setDaemon(true);
+                return t;
+            }
+        };
+    }
 
 
 }

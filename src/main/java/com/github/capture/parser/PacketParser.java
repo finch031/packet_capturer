@@ -24,6 +24,11 @@ public final class PacketParser {
      * */
     public static TcpPacketRecord parse(byte[] data,int offset, int len,String messageID,long captureTs){
         TcpPacketRecord packetRecord = null;
+
+        if(data.length == 0){
+            return null;
+        }
+
         long parseStartTs = System.currentTimeMillis();
 
         try{

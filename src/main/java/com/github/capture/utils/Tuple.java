@@ -6,9 +6,11 @@ package com.github.capture.utils;
  * @datetime 2021-06-01 10:58
  * @description
  */
-public final class Tuple<V1, V2> {
+public final class Tuple<V1, V2>{
     private V1 v1;
     private V2 v2;
+
+    public Tuple(){}
 
     public Tuple(V1 v1, V2 v2) {
         this.v1 = v1;
@@ -17,6 +19,10 @@ public final class Tuple<V1, V2> {
 
     public static <V1, V2> Tuple<V1, V2> tuple(V1 v1, V2 v2) {
         return new Tuple<>(v1, v2);
+    }
+
+    public static <V1, V2> Tuple<V1, V2> tuple() {
+        return new Tuple<>();
     }
 
     public V1 v1() {

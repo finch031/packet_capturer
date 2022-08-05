@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.sql.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -92,8 +93,12 @@ public class ClickHouseJDBCClient {
 
         // 高可用模式下的数据源，此时utl中多个地址使用逗号分隔
         // BalancedClickhouseDataSource balanced = new BalancedClickhouseDataSource("",this.clickHouseProperties);
+
         // 对每个host进行ping操作,排除不可用的dead连接.
         // balanced.actualize();
+
+        // 周期型ping探活
+        // balanced.scheduleActualization(1, TimeUnit.SECONDS);
 
         // Statement对象参数配置
         StatementConfiguration.Builder builder = new StatementConfiguration.Builder();
