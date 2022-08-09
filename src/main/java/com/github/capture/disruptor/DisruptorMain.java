@@ -82,8 +82,8 @@ public class DisruptorMain {
                 packetSource = new EmptyPacketSource();
                 break;
             default:
-                System.err.println("not supported packet source of:" + captureSourceType);
-                break;
+                System.err.println("unsupported packet source of:" + captureSourceType);
+                System.exit(1);
         }
 
         double permitsPerSecond = appConf.getDouble("client.capture.max.speed",1000d);

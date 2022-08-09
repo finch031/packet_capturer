@@ -28,6 +28,11 @@ public interface CapturePacket extends Serializable {
         @Override
         public void setData(byte[] data) {
         }
+
+        @Override
+        public String toString() {
+            return "EmptyCapturePacket{}";
+        }
     }
 
     static CapturePacket emptyPacket(){

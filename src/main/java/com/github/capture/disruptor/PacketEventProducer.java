@@ -19,7 +19,9 @@ public class PacketEventProducer implements Runnable{
     private transient boolean isRunning;
     private final PacketSource<?> packetSource;
     private final RingBuffer<CapturePacket> ringBuffer;
+    // 瞬时速度
     private float metricSpeed = 0f;
+    // 生产者限速器
     @SuppressWarnings("UnstableApiUsage")
     private final RateLimiter rateLimiter;
 
