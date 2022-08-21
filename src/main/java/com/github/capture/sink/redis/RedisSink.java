@@ -5,7 +5,9 @@ import com.github.capture.sink.Callback;
 import com.github.capture.sink.PacketSink;
 import com.github.capture.utils.Utils;
 import redis.clients.jedis.Jedis;
-
+import redis.clients.jedis.JedisCluster;
+import redis.clients.jedis.ShardedJedis;
+import redis.clients.jedis.JedisClusterCommand;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,11 +19,28 @@ import java.util.Map;
  * @description
  */
 public class RedisSink implements PacketSink {
-    private final Jedis jedis;
+    // private final Jedis jedis;
+    // private final ShardedJedis jedis;
+    private final JedisCluster jedis;
+
     private final int recordTtl;
     private final Map<String,String> value = new HashMap<>();
 
+    /*
     public RedisSink(Jedis jedis,int recordTtl){
+        this.jedis = jedis;
+        this.recordTtl = recordTtl;
+    }
+    */
+
+    /*
+    public RedisSink(ShardedJedis jedis,int recordTtl){
+        this.jedis = jedis;
+        this.recordTtl = recordTtl;
+    }
+    */
+
+    public RedisSink(JedisCluster jedis,int recordTtl){
         this.jedis = jedis;
         this.recordTtl = recordTtl;
     }
@@ -57,7 +76,7 @@ public class RedisSink implements PacketSink {
 
     @Override
     public void open() {
-        jedis.connect();
+        // jedis.connect();
     }
 
     @Override
